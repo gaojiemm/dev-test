@@ -1,0 +1,72 @@
+name: 'Generate Installation Token for Team Repositories'
+description: 'Generate a GitHub App installation token with write access to team repositories'
+
+inputs:
+  app-id:
+    description: 'GitHub App ID'
+    required: true
+  private-key:
+    description: 'GitHub App private key'
+    required: true
+  team-mapping-path:
+    description: 'Path to team_mapping.yml file'
+    required: false
+    default: 'team_mapping.yml'
+
+outputs:
+  token:
+    description: 'Generated installation token'
+    value: ${{ steps.generate-token.outputs.token }}
+  repositories:
+    description: 'List of repositories the token has access to'
+    value: ${{ steps.prepare-repos.outputs.repositories }}
+  team:
+    description: 'The team associated with this repository'
+    value: ${{ steps.get-team.outputs.team }}
+
+runs:
+  using: 'composite'
+  steps:
+    # Step 1: Get team from mapping file
+    - name: Get team from mapping
+      id: get-team
+      shell: bash
+      run: |
+        REPO_NAME="${{ github.event.repository.name }}"
+        TEAM=$("${{ github.action_path }}/scripts/get-team.sh" "${{ inputs.team-mapping-path }}" "$REPO_NAME")
+        echo "team=$TEAM" >> "$GITHUB_OUTPUT"
+
+    # Step 2: Get team repositories using gh api
+    - name: Prepare repositories list
+      id: prepare-repos
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        ORG="${{ github.repository_owner }}"
+        TEAM="${{ steps.get-team.outputs.team }}"
+        REPOS=$("${{ github.action_path }}/scripts/get-repos.sh" "$ORG" "$TEAM")
+        echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
+
+    # Step 3: Generate Installation Token
+    - name: Generate token
+      id: generate-token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: ${{ github.repository_owner }}
+        repositories: ${{ steps.prepare-repos.outputs.repositories }}
+        permissions: |-
+          contents: write
+
+    # Step 4: Output token information
+    - name: Output token information
+      shell: bash
+      run: |
+        TOKEN="${{ steps.generate-token.outputs.token }}"
+        TOKEN_LENGTH=${#TOKEN}
+        "${{ github.action_path }}/scripts/output-token.sh" \
+          "${{ steps.get-team.outputs.team }}" \
+          '${{ steps.prepare-repos.outputs.repositories }}' \
+          "$TOKEN_LENGTH"

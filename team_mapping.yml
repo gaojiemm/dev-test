@@ -1,0 +1,16 @@
+# Team Mapping Configuration
+# 该文件映射repository到GitHub organization team
+# 格式: 
+#   - repo: 仓库名称 (不包含owner)
+#     team: 团队名称 (organization内的team slug)
+
+- repo: test-repo
+  team: SOE-SRE
+
+# 添加更多的映射示例
+# - repo: dev-service
+#   team: DEV-TEAM
+# - repo: infra-tools
+#   team: INFRA-TEAM
+# - repo: api-gateway
+#   team: BACKEND-TEAM

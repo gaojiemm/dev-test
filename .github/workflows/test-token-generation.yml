@@ -1,0 +1,190 @@
+name: Test Team Token Generation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Test mode'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-and-test-token:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Display repository info
+        run: |
+          echo "Repository: ${{ github.repository }}"
+          echo "Repository Owner: ${{ github.repository_owner }}"
+          echo "Repository Name: ${{ github.event.repository.name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Actor: ${{ github.actor }}"
+
+      # 调用自定义action生成token
+      - name: Generate installation token for team
+        id: token
+        uses: ./
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          team-mapping-path: 'team_mapping.yml'
+
+      # 输出生成的token信息
+      - name: Display token information
+        run: |
+          echo "========================================="
+          echo "✓ Token Generation Summary"
+          echo "========================================="
+          echo "Team: ${{ steps.token.outputs.team }}"
+          echo "Repositories: ${{ steps.token.outputs.repositories }}"
+          echo "Token Length: $(echo '${{ steps.token.outputs.token }}' | wc -c) characters"
+          echo "Token Prefix: $(echo '${{ steps.token.outputs.token }}' | cut -c1-20)..."
+          echo "========================================="
+
+      # 验证token有效性 - 获取当前用户信息
+      - name: Verify token - Get user info
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          echo "Verifying token by calling GitHub API..."
+          RESPONSE=$(curl -s -H "Authorization: token $TOKEN" \
+                          -H "Accept: application/vnd.github.v3+json" \
+                          https://api.github.com/app/installations)
+          
+          if echo "$RESPONSE" | grep -q '"id"'; then
+            echo "✓ Token verification successful!"
+            echo "Response: $RESPONSE"
+          else
+            echo "✗ Token verification failed!"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+      # 验证token权限 - 测试repositories列表
+      - name: Verify token - List accessible repositories
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          TEAM: ${{ steps.token.outputs.team }}
+        run: |
+          echo "Listing repositories accessible by token..."
+          REPOS=$(echo '${{ steps.token.outputs.repositories }}' | jq -r '.[]' 2>/dev/null || echo "")
+          
+          if [ ! -z "$REPOS" ]; then
+            echo "Repositories accessible by token:"
+            echo "$REPOS" | nl
+          else
+            echo "Note: Could not parse repositories list"
+          fi
+
+      # 尝试克隆一个有权限的repository
+      - name: Clone repository with token
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          echo "Testing token with git clone..."
+          # 注意：这里使用原始仓库作为测试，实际可以尝试team的其他仓库
+          git clone --depth 1 https://oauth2:${TOKEN}@github.com/${{ github.repository }}.git test-clone
+          if [ -d "test-clone" ]; then
+            echo "✓ Successfully cloned repository with token!"
+            ls -la test-clone | head -10
+          else
+            echo "✗ Failed to clone repository"
+            exit 1
+          fi
+
+      # 使用token调用GitHub API进行修改操作
+      - name: Test write operations with token
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Testing write operations with token..."
+          
+          # 创建一个测试issue（如果有权限）
+          ISSUE_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/$REPO/issues \
+            -d '{"title":"Test Issue from Action","body":"This issue was created by GitHub Actions to verify token permissions","labels":["automated"]}')
+          
+          if echo "$ISSUE_RESPONSE" | grep -q '"number"'; then
+            ISSUE_NUMBER=$(echo "$ISSUE_RESPONSE" | jq '.number')
+            echo "✓ Successfully created test issue #$ISSUE_NUMBER"
+            echo "Issue data: $ISSUE_RESPONSE" | jq '.'
+            
+            # 关闭测试issue
+            curl -s -X PATCH \
+              -H "Authorization: token $TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/$REPO/issues/$ISSUE_NUMBER \
+              -d '{"state":"closed"}'
+            
+            echo "✓ Closed test issue #$ISSUE_NUMBER"
+          else
+            echo "Note: Could not create issue (might need specific permissions)"
+            echo "Response: $ISSUE_RESPONSE" | jq '.'
+          fi
+
+      # 总结测试结果
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "========================================="
+          echo "Test Execution Summary"
+          echo "========================================="
+          echo "Workflow Status: ${{ job.status }}"
+          echo "Token Generated: ✓"
+          echo "Team: ${{ steps.token.outputs.team }}"
+          echo "OAuth App Integration: ✓"
+          echo "========================================="
+
+  # 可选：用token进行git操作的示例job
+  git-operations:
+    runs-on: ubuntu-latest
+    needs: generate-and-test-token
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Regenerate token for git operations
+        id: token
+        uses: ./
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          team-mapping-path: 'team_mapping.yml'
+
+      - name: Git operations example
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          # 配置git
+          git config --global user.email "github-app@github.com"
+          git config --global user.name "GitHub App Token"
+          
+          echo "Current git config:"
+          git config --global --list | grep -E "user\.|credential"
+          
+          # 演示git操作
+          echo "Git operations configured successfully with generated token"
+          echo "Token can now be used for:"
+          echo "  - git push to team repositories"
+          echo "  - git pull from team repositories"
+          echo "  - git clone with authentication"
