@@ -98,8 +98,8 @@ jobs:
         run: |
           echo "Testing token with git clone..."
           # 注意：这里使用原始仓库作为测试，实际可以尝试team的其他仓库
-          git clone --depth 1 https://oauth2:${TOKEN}@github.com/${{ github.repository }}.git test-clone
-          if [ -d "test-clone" ]; then
+          git cl://oauth2:${TOKEN}@github.com/${{ github.repository }}.git test-clone
+          if [ -t-clone" ]; then
             echo "✓ Successfully cloned repository with token!"
             ls -la test-clone | head -10
           else
@@ -119,8 +119,8 @@ jobs:
           ISSUE_RESPONSE=$(curl -s -X POST \
             -H "Authorization: token $TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/$REPO/issues \
-            -d '{"title":"Test Issue from Action","body":"This issue was created by GitHub Actions to verify token permissions","labels":["automated"]}')
+            hom/repos/$REPO/issues \
+            -itle":"Test Issue from Action","body":"This issue was created by GitHub Actions to verify token permissions","labels":["automated"]}')
           
           if echo "$ISSUE_RESPONSE" | grep -q '"number"'; then
             ISSUE_NUMBER=$(echo "$ISSUE_RESPONSE" | jq '.number')
@@ -131,8 +131,8 @@ jobs:
             curl -s -X PATCH \
               -H "Authorization: token $TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/$REPO/issues/$ISSUE_NUMBER \
-              -d '{"state":"closed"}'
+              hom/repos/$REPO/issues/$ISSUE_NUMBER \
+              -tate":"closed"}'
             
             echo "✓ Closed test issue #$ISSUE_NUMBER"
           else
@@ -188,3 +188,5 @@ jobs:
           echo "  - git push to team repositories"
           echo "  - git pull from team repositories"
           echo "  - git clone with authentication"
+          # test for git push (注意：需要有权限的仓库和分支)
+          
