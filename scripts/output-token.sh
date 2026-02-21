@@ -7,21 +7,32 @@ TEAM="${1:-}"
 REPOSITORIES="${2:-}"
 TOKEN_LENGTH="${3:-0}"
 
-if [ -z "$TEAM" ]; then
-  echo "Error: TEAM not provided"
-  exit 1
-fi
-
 echo "========================================="
 echo "✓ Installation token generated successfully"
 echo "========================================="
-echo "Team: $TEAM"
+
+if [ -n "$TEAM" ]; then
+  echo "Team: $TEAM"
+else
+  echo "Mode: Personal account (no team)"
+fi
 
 if [ -n "$REPOSITORIES" ]; then
   echo "Repositories:"
-  echo "$REPOSITORIES" | jq -r '.[]' 2>/dev/null | while read -r repo; do
-    echo "  - $repo"
-  done
+  # Handle both newline-separated strings and JSON arrays
+  if echo "$REPOSITORIES" | jq -e . >/dev/null 2>&1; then
+    # It's valid JSON
+    echo "$REPOSITORIES" | jq -r '.[]' 2>/dev/null | while read -r repo; do
+      echo "  - $repo"
+    done
+  else
+    # It's a plain string (newline-separated or single repo)
+    echo "$REPOSITORIES" | while read -r repo; do
+      if [ -n "$repo" ]; then
+        echo "  - $repo"
+      fi
+    done
+  fi
 fi
 
 if [ "$TOKEN_LENGTH" -gt 0 ]; then

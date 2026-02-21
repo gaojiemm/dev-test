@@ -27,16 +27,17 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    # Step 1: Get team from mapping file
+    # Step 1: Get team from mapping file (allow failure for personal accounts)
     - name: Get team from mapping
       id: get-team
       shell: bash
+      continue-on-error: true
       run: |
         REPO_NAME="${{ github.event.repository.name }}"
-        TEAM=$("${{ github.action_path }}/scripts/get-team.sh" "${{ inputs.team-mapping-path }}" "$REPO_NAME")
+        TEAM=$("${{ github.action_path }}/scripts/get-team.sh" "${{ inputs.team-mapping-path }}" "$REPO_NAME" 2>/dev/null || echo "")
         echo "team=$TEAM" >> "$GITHUB_OUTPUT"
 
-    # Step 2: Get team repositories using gh api
+    # Step 2: Get team repositories using gh api (fallback to current repo for personal accounts)
     - name: Prepare repositories list
       id: prepare-repos
       shell: bash
@@ -45,7 +46,18 @@ runs:
       run: |
         ORG="${{ github.repository_owner }}"
         TEAM="${{ steps.get-team.outputs.team }}"
-        REPOS=$("${{ github.action_path }}/scripts/get-repos.sh" "$ORG" "$TEAM")
+        
+        if [ -n "$TEAM" ]; then
+          # Organization account with team
+          REPOS=$("${{ github.action_path }}/scripts/get-repos.sh" "$ORG" "$TEAM" 2>/dev/null || echo "")
+        fi
+        
+        # Fallback to current repository for personal accounts or if team fetch failed
+        if [ -z "$REPOS" ]; then
+          echo "Using current repository only (personal account or team not found)"
+          REPOS="${{ github.event.repository.name }}"
+        fi
+        
         echo "repositories=$REPOS" >> "$GITHUB_OUTPUT"
 
     # Step 3: Generate Installation Token
