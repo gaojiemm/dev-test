@@ -69,8 +69,7 @@ runs:
         private-key: ${{ inputs.private-key }}
         owner: ${{ github.repository_owner }}
         repositories: ${{ steps.prepare-repos.outputs.repositories }}
-        permissions: |-
-          contents: write
+        permission-contents: write
 
     # Step 4: Output token information
     - name: Output token information
