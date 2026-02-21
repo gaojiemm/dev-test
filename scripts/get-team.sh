@@ -18,7 +18,7 @@ if [ ! -f "$MAPPING_FILE" ]; then
   exit 1
 fi
 # 从 YAML 中提取当前 repo 对应的 team
-TEAM=$(yq eval ".repositories[] | select(.repo == \"$REPO_NAME\") | .team" "$MAPPING_FILE")
+TEAM=$(yq eval ".[] | select(.repo == \"$REPO_NAME\") | .team" "$MAPPING_FILE")
 
 if [ -z "$TEAM" ]; then
     echo "Error: Could not find team mapping for repository $REPO_NAME"

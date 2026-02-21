@@ -52,4 +52,5 @@ while true; do
   PAGE=$((PAGE + 1))
 done
 
-echo "$REPOS_JSON"
+# Convert JSON array to newline-separated list for actions/create-github-app-token
+echo "$REPOS_JSON" | jq -r '.[]'
