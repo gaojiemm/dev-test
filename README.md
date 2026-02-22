@@ -8,6 +8,7 @@
 
 |  | 资源 | 说明 |
 |---|------|------|
+| ⚙️ | [SETUP_GUIDE.md](SETUP_GUIDE.md) | **完整配置流程**（从零开始的详细步骤）⭐⭐⭐ |
 | 📖 | [USAGE_GUIDE.md](USAGE_GUIDE.md) | **完整使用指南**（概念、配置、示例、故障排除）⭐ |
 | 💻 | [CODE_SNIPPETS.md](CODE_SNIPPETS.md) | **代码速查手册**（所有可用代码片段和命令）⭐ |
 | 🚀 | [QUICK_START.md](QUICK_START.md) | 快速开始指南（5分钟上手） |
