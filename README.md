@@ -8,8 +8,10 @@
 
 |  | 资源 | 说明 |
 |---|------|------|
-| 📖 | [QUICK_START.md](QUICK_START.md) | 快速开始指南（5分钟上手） |
-| 🤖 | [COPILOT_COMMANDS_CN.md](COPILOT_COMMANDS_CN.md) | **GitHub Copilot 中文命令**（一键生成 action/workflow） ⭐ |
+| 📖 | [USAGE_GUIDE.md](USAGE_GUIDE.md) | **完整使用指南**（概念、配置、示例、故障排除）⭐ |
+| 💻 | [CODE_SNIPPETS.md](CODE_SNIPPETS.md) | **代码速查手册**（所有可用代码片段和命令）⭐ |
+| 🚀 | [QUICK_START.md](QUICK_START.md) | 快速开始指南（5分钟上手） |
+| 🤖 | [COPILOT_COMMANDS_CN.md](COPILOT_COMMANDS_CN.md) | GitHub Copilot 中文命令（一键生成 action/workflow） |
 | 🤖 | [COPILOT_GUIDE.md](COPILOT_GUIDE.md) | GitHub Copilot 英文版使用指南 |
 | 📁 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 项目结构说明 |
 | 🧹 | [CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md) | 项目整理说明 |
