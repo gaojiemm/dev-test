@@ -4,6 +4,16 @@
 
 这是一个 GitHub Actions 自定义 Action，用于自动生成 **GitHub App Installation Token**。
 
+### 什么是 GitHub App？
+
+根据 [GitHub Apps overview](https://docs.github.com/en/apps/creating-github-apps/about-github-apps/about-github-apps)，**GitHub App 是扩展 GitHub 功能的工具**。
+
+**GitHub App 可以做什么**：
+- 📝 **在 GitHub 上执行操作**：打开 Issue、评论 Pull Request、管理项目、触发 workflow 等
+- 🔗 **执行外部集成操作**：例如在 GitHub 上打开 Issue 时，自动在 Slack 发布消息
+- 🤖 **自动化工作流**：基于 GitHub 事件触发自动化任务
+- 🔐 **安全的 API 访问**：使用细粒度权限访问 GitHub API
+
 ### 为什么需要这个 Action？
 
 在 GitHub Actions 中，默认的 `GITHUB_TOKEN` 有以下限制：
@@ -16,6 +26,7 @@
 - ✅ 更灵活的权限控制
 - ✅ 可以触发其他 workflow
 - ✅ 作为服务账号使用，不占用个人配额
+- ✅ 短期有效（约 1 小时），更安全
 
 ### 支持的使用模式
 
@@ -1290,6 +1301,110 @@ jobs:
 
 ## 📚 核心概念
 
+### GitHub App Token 类型详解
+
+GitHub App 支持多种 Token 类型，用于不同的身份验证场景：
+
+#### 1. JWT (JSON Web Token)
+
+**用途**：代表 GitHub App 本身进行身份验证
+
+**特点**：
+- 用于生成 Installation Access Token
+- 用于管理应用本身（如获取安装列表）
+- 有效期短（最多 10 分钟）
+- 无法直接访问仓库数据
+
+**生成方式**：
+```
+App ID + Private Key → JWT
+```
+
+---
+
+#### 2. Installation Access Token（安装访问令牌）⭐
+
+**用途**：代表 GitHub App 的安装实例进行身份验证
+
+**特点**：
+- ✅ **本 Action 生成的就是这种 Token**
+- 用于访问应用安装账户所拥有的资源
+- 短期有效（约 1 小时）
+- 具有细粒度权限（仅限指定仓库和权限）
+- 可以发起 API 请求、Git 操作等
+
+**生成方式**：
+```
+JWT → GitHub API → Installation Access Token
+```
+
+**使用示例**：
+```bash
+curl -H "Authorization: token ghs_xxxxxxxxxxxx" \
+     https://api.github.com/repos/owner/repo
+```
+
+---
+
+#### 3. User Access Token（用户访问令牌）
+
+**用途**：代表用户执行操作
+
+**特点**：
+- 用于代表特定用户创建 Issue、评论、部署等
+- 可配置过期时间，强制定期轮换
+- 需要用户授权
+
+**本 Action 不使用此类型 Token**
+
+---
+
+### GitHub App vs OAuth App
+
+#### 为什么选择 GitHub App？
+
+根据 [GitHub Apps overview](https://docs.github.com/en/apps/creating-github-apps/about-github-apps/about-github-apps)，GitHub App 相比 OAuth App 有显著优势：
+
+| 特性 | GitHub App ✅ | OAuth App ❌ |
+|------|--------------|-------------|
+| **权限粒度** | 细粒度（按功能、按仓库） | 粗粒度（全局权限） |
+| **仓库访问控制** | 用户可选择授权哪些仓库 | 全部或无 |
+| **Token 有效期** | 短期（1 小时），自动过期 | 长期有效，需手动撤销 |
+| **安全隔离** | Token 泄露影响有限 | Token 泄露影响所有仓库 |
+| **运行方式** | 可独立于用户运行 | 必须代表用户运行 |
+| **身份显示** | 显示为 App 名称 | 显示为用户名 |
+| **API 配额** | 独立配额 | 占用用户配额 |
+
+#### GitHub App 的安全优势
+
+1. **🔒 细粒度权限**
+   - 可以精确控制权限范围（如只有 Contents: write）
+   - 避免过度授权
+
+2. **🎯 仓库级别访问控制**
+   - 用户可以精确控制 App 能访问哪些仓库
+   - 支持 "Only select repositories"
+
+3. **⏱️ 短期令牌**
+   - Installation Token 约 1 小时自动过期
+   - 降低 Token 泄露的长期风险
+
+4. **🛡️ 更好的安全隔离**
+   - 即使 Token 泄露，损害范围有限
+   - 可以快速撤销 App 授权
+
+#### 实际应用场景对比
+
+| 场景 | GitHub App | OAuth App |
+|------|-----------|-----------|
+| CI/CD 自动化 | ✅ 推荐 | ⚠️ 不推荐 |
+| 跨仓库操作 | ✅ 推荐 | ⚠️ 权限过大 |
+| 用户交互 | ✅ 可以 | ✅ 推荐 |
+| 长期运行服务 | ✅ 推荐 | ❌ 安全风险 |
+| 企业集成 | ✅ 推荐 | ⚠️ 合规问题 |
+
+---
+
 ### GitHub App vs Personal Access Token (PAT)
 
 | 特性 | GitHub App Token | Personal Access Token |
@@ -1312,12 +1427,57 @@ jobs:
 | **JWT** | 认证 App 身份 | 10 分钟 | 无数据访问权限 |
 | **Installation Token** | 访问仓库数据 | 1 小时 | 具体仓库的具体权限 |
 
-**工作流程**:
+**完整工作流程**:
 ```
-Private Key + App ID → JWT → Installation Token → GitHub API
+┌─────────────┐
+│  App ID +   │
+│ Private Key │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│     JWT     │  (有效期 10 分钟)
+└──────┬──────┘
+       │
+       ▼ GitHub API 请求
+┌──────────────────────┐
+│ Installation Token   │  (有效期 1 小时) ⭐ 本 Action 生成
+└──────┬───────────────┘
+       │
+       ▼ 使用 Token
+┌─────────────┐
+│ GitHub API  │
+│ Git 操作    │
+│ Workflow 触发│
+└─────────────┘
 ```
 
-本 Action 自动完成了整个流程。
+**本 Action 自动完成了整个流程**，你只需提供 App ID 和私钥。
+
+---
+
+### 为什么要使用本 Action？
+
+#### 主要使用场景
+
+1. **🔧 扩展 GitHub 生态**
+   - 为团队提供自动化和集成能力
+   - 构建自定义 CI/CD 流程
+
+2. **🔐 安全合规**
+   - 与其他系统集成时避免过度授权
+   - 使用细粒度权限满足安全要求
+   - 符合企业安全策略
+
+3. **👥 改善用户体验**
+   - 相比 OAuth，App 提供更直观的权限管理
+   - 用户可以清楚看到 App 需要哪些权限
+   - 更简单的安装和撤销流程
+
+4. **⚙️ CI/CD 集成**
+   - 在 GitHub Actions 中安全地进行身份验证
+   - 替代 PAT，避免个人 Token 泄露风险
+   - 支持跨仓库操作
 
 ---
 
